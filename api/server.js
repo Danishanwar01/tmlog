@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: "https://tmlog.vercel.app", 
+  origin: "https://tmlogabcd.vercel.app", 
   methods: ["POST", "GET", "OPTIONS"],
   credentials: true
 }));
