@@ -11,26 +11,26 @@
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
-    const tg = window.Telegram.WebApp;
+  const tg = window.Telegram.WebApp;
+  tg.ready();
 
-    if (!tg.initData) {
-      document.body.innerHTML = "<h2>❌ Open this inside Telegram @africacryptologinbot</h2>";
-      throw new Error("Not inside Telegram");
-    }
+  if (!tg.initData) {
+    document.body.innerHTML = "<h2>❌ Open inside Telegram @africacryptologinbot</h2>";
+    throw new Error("Not inside Telegram");
+  }
 
-    fetch("https://tmlogabcd.vercel.app/auth/telegram/callback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        initData: tg.initData
-      })
-    })
-    .then(res => res.text())
-    .then(html => {
-      document.open();
-      document.write(html);
-      document.close();
-    });
-  </script>
+  fetch("/auth/telegram/callback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initData: tg.initData })
+  })
+  .then(res => res.text())
+  .then(html => {
+    document.open();
+    document.write(html);
+    document.close();
+  });
+</script>
+
 </body>
 </html>

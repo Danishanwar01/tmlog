@@ -1,71 +1,62 @@
-// server.js
 const express = require("express");
 const crypto = require("crypto");
 const cors = require("cors");
 
 const app = express();
-
-// ✅ Allow requests from your Mini App frontend
-app.use(cors({
-  origin: "https://tmlogabcd.vercel.app", // Replace with your frontend URL
-  methods: ["POST", "GET", "OPTIONS"],
-  credentials: true
-}));
-
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// Telegram Bot Token from environment
 const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN) {
-  throw new Error("❌ BOT_TOKEN missing in environment variables!");
-}
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN missing");
 
-// Parse initData safely using URLSearchParams
-function parseInitData(initData) {
-  return Object.fromEntries(new URLSearchParams(initData));
-}
-
-// Telegram Mini App callback
 app.post("/auth/telegram/callback", (req, res) => {
   const { initData } = req.body;
-  if (!initData) return res.status(400).send("❌ initData missing");
+  if (!initData) return res.status(400).send("initData missing");
 
-  const data = parseInitData(initData);
+  const data = Object.fromEntries(new URLSearchParams(initData));
 
   const receivedHash = data.hash;
   delete data.hash;
 
-  // Create data check string (sorted)
+  // ⏳ Expiry check
+  const authDate = Number(data.auth_date);
+  const now = Math.floor(Date.now() / 1000);
+  if (now - authDate > 60) {
+    return res.status(403).send("InitData expired");
+  }
+
   const dataCheckString = Object.keys(data)
     .sort()
-    .map(key => `${key}=${data[key]}`)
+    .map(k => `${k}=${data[k]}`)
     .join("\n");
 
-  // Telegram recommends using HMAC with BOT_TOKEN directly
-  const secretKey = crypto.createHmac("sha256", BOT_TOKEN).digest();
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(BOT_TOKEN)
+    .digest();
+
   const calculatedHash = crypto
     .createHmac("sha256", secretKey)
     .update(dataCheckString)
     .digest("hex");
 
   if (calculatedHash !== receivedHash) {
-    console.log("HASH MISMATCH", { receivedHash, calculatedHash, dataCheckString });
-    return res.status(403).send("❌ Invalid Mini App auth");
+    console.log("HASH FAIL", { dataCheckString });
+    return res.status(403).send("Invalid Mini App auth");
   }
 
-  // ✅ Only parse user after verification
-  const user = JSON.parse(data.user);
+  let user;
+  try {
+    user = JSON.parse(data.user);
+  } catch {
+    return res.status(400).send("User parse failed");
+  }
 
   res.send(`
-    <h2>✅ Welcome ${user.first_name}</h2>
+    <h2>✅ Login Success</h2>
+    <p>${user.first_name} (@${user.username})</p>
     <pre>${JSON.stringify(user, null, 2)}</pre>
   `);
 });
 
 module.exports = app;
-
-// Optional: Start server locally
-if (require.main === module) {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
